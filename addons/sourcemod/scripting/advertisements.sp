@@ -54,27 +54,28 @@ Handle g_hTimer;
  */
 public void OnPluginStart()
 {
-    CreateConVar("sm_advertisements_version", PL_VERSION, "Display advertisements", FCVAR_NOTIFY);
-    g_hEnabled  = CreateConVar("sm_advertisements_enabled",  "1",                  "Enable/disable displaying advertisements.");
-    g_hFile     = CreateConVar("sm_advertisements_file",     "advertisements.txt", "File to read the advertisements from.");
-    g_hInterval = CreateConVar("sm_advertisements_interval", "30",                 "Number of seconds between advertisements.");
-    g_hRandom   = CreateConVar("sm_advertisements_random",   "0",                  "Enable/disable random advertisements.");
+	CreateConVar("sm_advertisements_version", PL_VERSION, "Display advertisements", FCVAR_NOTIFY);
+	g_hEnabled  = CreateConVar("sm_advertisements_enabled",  "1",                  "Enable/disable displaying advertisements.");
+	g_hFile     = CreateConVar("sm_advertisements_file",     "advertisements.txt", "File to read the advertisements from.");
+	g_hInterval = CreateConVar("sm_advertisements_interval", "30",                 "Number of seconds between advertisements.");
+	g_hRandom   = CreateConVar("sm_advertisements_random",   "0",                  "Enable/disable random advertisements.");
 
-    g_hFile.AddChangeHook(ConVarChanged_File);
-    g_hInterval.AddChangeHook(ConVarChanged_Interval);
+	g_hFile.AddChangeHook(ConVarChanged_File);
+	g_hInterval.AddChangeHook(ConVarChanged_Interval);
 
-    g_bMapChooser = LibraryExists("mapchooser");
-    g_bSayText2 = GetUserMessageId("SayText2") != INVALID_MESSAGE_ID;
-    g_hAdvertisements = new ArrayList(sizeof(Advertisement));
+	g_bMapChooser = LibraryExists("mapchooser");
+	g_bSayText2 = GetUserMessageId("SayText2") != INVALID_MESSAGE_ID;
+	g_hAdvertisements = new ArrayList(sizeof(Advertisement));
 
-    RegServerCmd("sm_advertisements_reload", Command_ReloadAds, "Reload the advertisements");
+	RegServerCmd("sm_advertisements_reload", Command_ReloadAds, "Reload the advertisements");
 
-    AddChatColors();
-    AddTopColors();
+	AddChatColors();
+	AddTopColors();
 
-    if (LibraryExists("updater")) {
-        Updater_AddPlugin(UPDATE_URL);
-    }
+	if (LibraryExists("updater")) {
+		Updater_AddPlugin(UPDATE_URL);
+	}
+	AutoExecConfig();
 }
 
 public void OnConfigsExecuted()
@@ -319,47 +320,21 @@ void ProcessVariables(const char[] message, char[] buffer, int maxlength)
 
         strcopy(name, name_len + 1, message[i + 1]);
 
-        if (StrEqual(name, "currentmap", false)) {
-            GetCurrentMap(value, sizeof(value));
-            GetMapDisplayName(value, value, sizeof(value));
-            buf_idx += strcopy(buffer[buf_idx], maxlength - buf_idx, value);
-        }
-        else if (StrEqual(name, "nextmap", false)) {
-            if (g_bMapChooser && EndOfMapVoteEnabled() && !HasEndOfMapVoteFinished()) {
-                buf_idx += strcopy(buffer[buf_idx], maxlength - buf_idx, "Pending Vote");
+        // Bloco responsável por substituir as variáveis
+        if ((hConVar = FindConVar(name))) {
+            hConVar.GetString(value, sizeof(value));
+            // Modificamos esta parte para tratar especificamente os casos de 0 e 1
+            if (StrEqual(value, "1")) {
+                buf_idx += strcopy(buffer[buf_idx], maxlength - buf_idx, "ON");
+            } else if (StrEqual(value, "0")) {
+                buf_idx += strcopy(buffer[buf_idx], maxlength - buf_idx, "OFF");
             } else {
-                GetNextMap(value, sizeof(value));
-                GetMapDisplayName(value, value, sizeof(value));
                 buf_idx += strcopy(buffer[buf_idx], maxlength - buf_idx, value);
             }
-        }
-        else if (StrEqual(name, "date", false)) {
-            FormatTime(value, sizeof(value), "%m/%d/%Y");
-            buf_idx += strcopy(buffer[buf_idx], maxlength - buf_idx, value);
-        }
-        else if (StrEqual(name, "time", false)) {
-            FormatTime(value, sizeof(value), "%I:%M:%S%p");
-            buf_idx += strcopy(buffer[buf_idx], maxlength - buf_idx, value);
-        }
-        else if (StrEqual(name, "time24", false)) {
-            FormatTime(value, sizeof(value), "%H:%M:%S");
-            buf_idx += strcopy(buffer[buf_idx], maxlength - buf_idx, value);
-        }
-        else if (StrEqual(name, "timeleft", false)) {
-            int mins, secs, timeleft;
-            if (GetMapTimeLeft(timeleft) && timeleft > 0) {
-                mins = timeleft / 60;
-                secs = timeleft % 60;
-            }
-
-            buf_idx += FormatEx(buffer[buf_idx], maxlength - buf_idx, "%d:%02d", mins, secs);
-        }
-        else if ((hConVar = FindConVar(name))) {
-            hConVar.GetString(value, sizeof(value));
-            buf_idx += strcopy(buffer[buf_idx], maxlength - buf_idx, value);
-        }
-        else {
-            buf_idx += FormatEx(buffer[buf_idx], maxlength - buf_idx, "{%s}", name);
+        } else {
+            // Se a variável não for encontrada, limpe o buffer e saia do loop
+            buf_idx = 0;
+            break;
         }
 
         i += name_len + 2;
